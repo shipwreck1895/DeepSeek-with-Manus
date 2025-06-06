@@ -1,0 +1,368 @@
+// App.js
+import React, { useState } from 'react';
+import { 
+  StyleSheet, 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  ScrollView, 
+  ActivityIndicator,
+  Switch,
+  Platform
+} from 'react-native';
+
+const AIAggregatorApp = () => {
+  // State management
+  const [prompt, setPrompt] = useState('');
+  const [results, setResults] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [selectedModels, setSelectedModels] = useState({
+    gemma: true,
+    llama: true,
+    deepseek: true,
+    qwen: true
+  });
+  const [darkMode, setDarkMode] = useState(false);
+
+  // Model information
+  const MODELS = {
+    gemma: { 
+      name: 'Gemma (Google)', 
+      color: '#4285F4',
+      description: 'Lightweight open model from Google'
+    },
+    llama: { 
+      name: 'Llama 3 (Meta)', 
+      color: '#4267B2',
+      description: 'Meta\'s popular open model'
+    },
+    deepseek: { 
+      name: 'DeepSeek R1', 
+      color: '#0F9D58',
+      description: 'Reasoning-focused model'
+    },
+    qwen: { 
+      name: 'Qwen (Alibaba)', 
+      color: '#FF6D00',
+      description: 'Multimodal model from Alibaba'
+    }
+  };
+
+  // Handle API call to backend
+  const submitPrompt = async () => {
+    if (!prompt.trim()) return;
+    
+    setLoading(true);
+    try {
+      // In production, replace with your actual backend endpoint
+      const response = await fetch('https://your-backend.com/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          task: prompt,
+          models: Object.keys(selectedModels).filter(model => selectedModels[model])
+        })
+      });
+
+      const data = await response.json();
+      setResults(data);
+    } catch (error) {
+      console.error('API Error:', error);
+      // Fallback to simulated responses if API fails
+      setResults(generateSimulatedResponses(prompt));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Generate simulated responses for demo
+  const generateSimulatedResponses = (prompt) => {
+    const responses = {};
+    Object.keys(selectedModels).forEach(model => {
+      if (selectedModels[model]) {
+        responses[model] = `This is a simulated response from ${MODELS[model].name} for: "${prompt}". In a real implementation, this would come from the actual model API.`;
+      }
+    });
+    
+    return {
+      results: responses,
+      manus_summary: `Simulated consensus summary for: "${prompt}". The models agree on the main points but differ in emphasis.`,
+      follow_up_questions: [
+        `What specific aspects of "${prompt}" are you most interested in?`,
+        `How would you like to apply this information?`,
+        `Would you like a more technical or simplified explanation?`
+      ]
+    };
+  };
+
+  // Toggle model selection
+  const toggleModel = (model) => {
+    setSelectedModels(prev => ({
+      ...prev,
+      [model]: !prev[model]
+    }));
+  };
+
+  // Render model selection chips
+  const renderModelChips = () => {
+    return Object.keys(MODELS).map(model => (
+      <TouchableOpacity
+        key={model}
+        style={[
+          styles.modelChip,
+          { 
+            backgroundColor: selectedModels[model] 
+              ? MODELS[model].color 
+              : darkMode ? '#333' : '#eee',
+            borderColor: MODELS[model].color
+          }
+        ]}
+        onPress={() => toggleModel(model)}
+      >
+        <Text style={[
+          styles.modelChipText, 
+          { color: selectedModels[model] ? 'white' : darkMode ? '#ccc' : '#555' }
+        ]}>
+          {MODELS[model].name}
+        </Text>
+      </TouchableOpacity>
+    ));
+  };
+
+  // Render results
+  const renderResults = () => {
+    if (!results) return null;
+
+    return (
+      <View style={styles.resultsContainer}>
+        {/* Consensus Summary */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Consensus Summary</Text>
+          <Text style={styles.summaryText}>{results.manus_summary}</Text>
+        </View>
+
+        {/* Follow-up Questions */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Follow-up Questions</Text>
+          {results.follow_up_questions.map((question, index) => (
+            <TouchableOpacity 
+              key={index} 
+              style={styles.questionCard}
+              onPress={() => setPrompt(question)}
+            >
+              <Text style={styles.questionText}>{question}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Individual Model Responses */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Model Responses</Text>
+          {Object.keys(results.results).map(model => (
+            <View key={model} style={styles.modelResponseCard}>
+              <View style={[styles.modelHeader, { backgroundColor: MODELS[model].color }]}>
+                <Text style={styles.modelName}>{MODELS[model].name}</Text>
+              </View>
+              <Text style={styles.modelResponse}>{results.results[model]}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
+  // Theme-aware styles
+  const containerStyle = darkMode ? styles.darkContainer : styles.lightContainer;
+  const inputStyle = darkMode ? styles.darkInput : styles.lightInput;
+  const textColor = darkMode ? styles.darkText : styles.lightText;
+  const buttonColor = darkMode ? '#BB86FC' : '#6200EE';
+
+  return (
+    <View style={[styles.container, containerStyle]}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={[styles.title, textColor]}>AI Aggregator</Text>
+          <View style={styles.themeToggle}>
+            <Text style={[textColor, {marginRight: 10}]}>
+              {darkMode ? '🌙 Dark' : '☀️ Light'}
+            </Text>
+            <Switch
+              value={darkMode}
+              onValueChange={setDarkMode}
+              thumbColor={Platform.OS === 'android' ? buttonColor : undefined}
+              trackColor={{ true: buttonColor, false: '#767577' }}
+            />
+          </View>
+        </View>
+        
+        {/* Prompt Input */}
+        <TextInput
+          style={[styles.input, inputStyle, textColor]}
+          placeholder="Enter your prompt or question..."
+          placeholderTextColor={darkMode ? '#aaa' : '#888'}
+          value={prompt}
+          onChangeText={setPrompt}
+          multiline
+          textAlignVertical="top"
+        />
+        
+        {/* Model Selection */}
+        <Text style={[styles.sectionTitle, textColor, {marginTop: 20}]}>Select Models</Text>
+        <View style={styles.modelContainer}>{renderModelChips()}</View>
+        
+        {/* Submit Button */}
+        <TouchableOpacity 
+          style={[styles.button, { backgroundColor: buttonColor }]}
+          onPress={submitPrompt}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={styles.buttonText}>Submit to AI Models</Text>
+          )}
+        </TouchableOpacity>
+        
+        {/* Results */}
+        {renderResults()}
+      </ScrollView>
+    </View>
+  );
+};
+
+// Styles
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingTop: Platform.OS === 'ios' ? 50 : 20,
+  },
+  lightContainer: {
+    backgroundColor: '#f8f9fa',
+  },
+  darkContainer: {
+    backgroundColor: '#121212',
+  },
+  scrollContainer: {
+    padding: 20,
+    paddingBottom: 50,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+  },
+  themeToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  input: {
+    minHeight: 100,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 15,
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  lightInput: {
+    backgroundColor: 'white',
+    borderColor: '#ddd',
+    color: '#333',
+  },
+  darkInput: {
+    backgroundColor: '#1e1e1e',
+    borderColor: '#333',
+    color: '#f0f0f0',
+  },
+  lightText: {
+    color: '#333',
+  },
+  darkText: {
+    color: '#f0f0f0',
+  },
+  modelContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginVertical: 10,
+  },
+  modelChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    borderWidth: 1,
+    margin: 5,
+  },
+  modelChipText: {
+    fontSize: 14,
+  },
+  button: {
+    padding: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginVertical: 20,
+    elevation: 3,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  resultsContainer: {
+    marginTop: 10,
+  },
+  section: {
+    marginBottom: 25,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+  },
+  summaryText: {
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  questionCard: {
+    backgroundColor: 'rgba(100, 149, 237, 0.2)',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 10,
+  },
+  questionText: {
+    fontSize: 16,
+    color: '#6495ED',
+  },
+  modelResponseCard: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 15,
+    
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  modelHeader: {
+    padding: 10,
+  },
+  modelName: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  modelResponse: {
+    padding: 15,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+});
+
+export default AIAggregatorApp;
